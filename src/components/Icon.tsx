@@ -3,7 +3,7 @@ import Svg, { Circle, Path, Rect } from 'react-native-svg';
 export type IconName =
   | 'arrow-right' | 'arrow-left' | 'chevron-left' | 'chevron-right' | 'close' | 'check' | 'plus'
   | 'camera' | 'camera-off' | 'lock' | 'shield' | 'sparkle' | 'sun' | 'distance'
-  | 'home' | 'calendar' | 'bulb' | 'bell' | 'pause' | 'play' | 'doctor' | 'note';
+  | 'home' | 'calendar' | 'bulb' | 'bell' | 'pause' | 'play' | 'doctor' | 'note' | 'volume' | 'volume-off';
 
 type Props = { name: IconName; size?: number; color?: string; stroke?: number };
 
@@ -68,6 +68,8 @@ export function Icon({ name, size = 24, color = '#fff', stroke = 1.6 }: Props) {
           <Path d="M5 20c0-4 3-6 7-6s7 2 7 6M12 14v4M10 16h4" {...p} />
         </>
       )}
+      {name === 'volume' && <Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM15.5 9a4 4 0 0 1 0 6M18 6.5a7.5 7.5 0 0 1 0 11" {...p} />}
+      {name === 'volume-off' && <Path d="M4 9.5h3.5L12 5.5v13l-4.5-4H4zM16 9.5l5 5M21 9.5l-5 5" {...p} />}
       {name === 'note' && <Path d="M6 3h9l4 4v14H6zM14 3v5h5M9 13h7M9 17h5" {...p} />}
     </Svg>
   );

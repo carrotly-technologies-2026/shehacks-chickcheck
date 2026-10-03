@@ -7,9 +7,13 @@ export type PoseName = 'down' | 'up' | 'hips' | 'palpateRight' | 'palpateLeft' |
 export type ExamStep = {
   id: string;
   title: string;
-  /** shown until the pose model recognises the pose */
+  /** short on-screen cue (readable from 1.5 m) until the pose is recognised */
+  cue: string;
+  /** short on-screen cue once the pose is recognised */
+  cueDoing: string;
+  /** spoken until the pose model recognises the pose */
   seeking: string;
-  /** shown once the pose is recognised */
+  /** spoken once the pose is recognised */
   doing: string;
   hint: string;
   pose: PoseName;
@@ -31,6 +35,8 @@ export const METHODS: { id: Method; label: string; hint: string }[] = [
 export const STEPS: ExamStep[] = [
   {
     id: 'front',
+    cue: 'Ręce wzdłuż ciała',
+    cueDoing: 'Przyjrzyj się piersiom',
     title: 'Oględziny z przodu',
     seeking: 'Stań przodem, ręce swobodnie wzdłuż ciała',
     doing: 'Dobrze. Przyjrzyj się piersiom',
@@ -42,6 +48,8 @@ export const STEPS: ExamStep[] = [
   },
   {
     id: 'raised',
+    cue: 'Ręce nad głowę',
+    cueDoing: 'Obserwuj kontur piersi',
     title: 'Ręce nad głową',
     seeking: 'Unieś obie ręce wysoko nad głowę',
     doing: 'Świetnie. Obserwuj kontur piersi',
@@ -53,6 +61,8 @@ export const STEPS: ExamStep[] = [
   },
   {
     id: 'hips',
+    cue: 'Dłonie na biodra',
+    cueDoing: 'Napnij mięśnie klatki',
     title: 'Dłonie na biodrach',
     seeking: 'Oprzyj dłonie na biodrach i napnij klatkę',
     doing: 'Trzymaj napięcie mięśni',
@@ -64,6 +74,8 @@ export const STEPS: ExamStep[] = [
   },
   {
     id: 'right',
+    cue: 'Lewa dłoń na prawą pierś',
+    cueDoing: 'Prowadź palce po ścieżce',
     title: 'Prawa pierś',
     seeking: 'Prawą rękę połóż za głową, lewą dłoń na prawej piersi',
     doing: 'Prowadź opuszki po zaznaczonej ścieżce',
@@ -76,6 +88,8 @@ export const STEPS: ExamStep[] = [
   },
   {
     id: 'left',
+    cue: 'Prawa dłoń na lewą pierś',
+    cueDoing: 'Prowadź palce po ścieżce',
     title: 'Lewa pierś',
     seeking: 'Lewą rękę połóż za głową, prawą dłoń na lewej piersi',
     doing: 'Prowadź opuszki po zaznaczonej ścieżce',
@@ -88,6 +102,8 @@ export const STEPS: ExamStep[] = [
   },
   {
     id: 'armpit',
+    cue: 'Lewa dłoń do prawej pachy',
+    cueDoing: 'Zbadaj pachę palcami',
     title: 'Pacha i brodawki',
     seeking: 'Unieś prawą rękę, lewą dłonią sięgnij do pachy',
     doing: 'Wyczuj węzły chłonne opuszkami trzech palców',

@@ -10,7 +10,6 @@ import { Icon } from '../components/Icon';
 import { PillButton } from '../components/PillButton';
 import { ProgressRing } from '../components/ProgressRing';
 import { Rings } from '../components/Rings';
-import { SymptomIcon } from '../components/SymptomIcon';
 import { PoseDetector, Pt } from '../detection/detector';
 import { FIG_H, FIG_W } from '../detection/geometry';
 import { MockDetector } from '../detection/mockDetector';
@@ -19,9 +18,9 @@ import { ExamOverlay, Projector } from '../exam/ExamOverlay';
 import { METHODS, Method, STEPS } from '../exam/steps';
 import { useAutoFrame } from '../exam/useAutoFrame';
 import { useExamSession } from '../exam/useExamSession';
+import { useVoice, voiceSupported } from '../exam/useVoice';
 import { useInsets } from '../lib/insets';
 import { useTime } from '../lib/useTime';
-import { findingLabel } from '../storage/log';
 import { colors, fonts, gradient, type } from '../theme';
 
 const isMethod = (m: unknown): m is Method => METHODS.some((x) => x.id === m);
@@ -46,6 +45,7 @@ export default function Exam() {
   const [model, setModel] = useState<PoseDetector | null>(null);
   const [modelFailed, setModelFailed] = useState(false);
   const [camKey, setCamKey] = useState(0);
+  const [voice, setVoice] = useState(true);
   const demoDetector = useMemo(() => new MockDetector(), []);
 
   useEffect(() => {
@@ -99,16 +99,37 @@ export default function Exam() {
   const hasBody = !!ev.keypoints;
   const done = ev.state === 'complete';
 
+  const last = index === total - 1;
+  const near = ev.distance === 'near';
+  const far = ev.distance === 'far';
+
+  // Read from 1–1.5 m: one short status, one big cue; the full sentence is spoken.
   const status = loading
-    ? 'Ładuję model pozy'
+    ? 'Ładowanie'
     : done ? 'Gotowe'
+    : near ? 'Za blisko'
+    : far ? 'Za daleko'
     : !hasBody ? 'Szukam sylwetki'
     : ev.state === 'searching' ? 'Widzę Cię'
-    : palpation ? `Śledzę dłoń · ${pct}%`
-    : 'Pozycja rozpoznana';
-  const dot = loading || !hasBody ? colors.amber : ev.state === 'searching' ? colors.white : colors.sage;
-  const instruction = done ? 'Świetnie. Przechodzimy dalej' : ev.state === 'detected' ? step.doing : ev.coach ?? step.seeking;
-  const hint = palpation ? METHODS.find((m) => m.id === method)!.hint : step.hint;
+    : palpation ? `Pokrycie ${pct}%`
+    : 'Trzymaj pozycję';
+  const dot = loading || !hasBody || near || far ? colors.amber : ev.state === 'searching' ? colors.white : colors.sage;
+  const cue = loading
+    ? cam === 'pending' ? 'Włączam kamerę' : 'Ładuję model'
+    : done ? 'Świetnie'
+    : near ? 'Odsuń się'
+    : far ? 'Podejdź bliżej'
+    : !hasBody ? 'Stań przed telefonem'
+    : ev.state === 'detected' ? step.cueDoing
+    : step.cue;
+  const spoken = loading
+    ? null
+    : done ? (last ? 'Badanie zakończone.' : 'Świetnie.')
+    : near || far || !hasBody ? ev.coach ?? step.seeking
+    : ev.state === 'detected'
+      ? palpation ? `${step.doing}. ${METHODS.find((m) => m.id === method)!.hint}` : `${step.doing}. ${step.hint}`
+      : ev.coach ?? step.seeking;
+  useVoice(paused ? null : spoken, step.id, voice);
 
   return (
     <View style={styles.fill} onLayout={(e) => setSize({ w: e.nativeEvent.layout.width, h: e.nativeEvent.layout.height })}>
@@ -134,9 +155,7 @@ export default function Exam() {
         </View>
       )}
 
-      <LinearGradient colors={['rgba(169,137,114,0.96)', 'rgba(169,137,114,0)']} style={[styles.scrimTop, { height: top + 150 }]} />
-      <LinearGradient colors={['rgba(137,96,77,0)', 'rgba(137,96,77,0.9)', colors.bottom]} locations={[0, 0.42, 1]} style={styles.scrimBottom} />
-
+      {/* overlay under the scrims, so it fades out behind the large bottom text */}
       <ExamOverlay
         ev={ev}
         proj={proj}
@@ -146,6 +165,10 @@ export default function Exam() {
         t={t}
         sinceDetect={detectedAt === null ? null : (performance.now() - detectedAt) / 1000}
       />
+
+      <LinearGradient colors={['rgba(169,137,114,0.96)', 'rgba(169,137,114,0)']} style={[styles.scrimTop, { height: top + 150 }]} />
+      <LinearGradient colors={['rgba(137,96,77,0)', 'rgba(137,96,77,0.9)', colors.bottom]} locations={[0, 0.42, 1]} style={styles.scrimBottom} />
+
 
       {loading && (
         <View style={styles.loading}>
@@ -160,11 +183,23 @@ export default function Exam() {
           <Pressable accessibilityLabel="Zakończ badanie" onPress={() => router.replace('/home')} hitSlop={12} style={styles.side}>
             <Icon name="close" size={22} />
           </Pressable>
-          <Text style={type.overline}>Krok {index + 1} z {total}</Text>
-          <View style={[styles.side, styles.local]}>
-            <Icon name="lock" size={13} color={colors.w80} />
-            <Text style={type.caption}>{demo ? 'Demo' : 'Lokalnie'}</Text>
+          <View style={styles.local}>
+            <Text style={type.overline}>Krok {index + 1} z {total}</Text>
+            <Icon name="lock" size={12} color={colors.w64} />
+            <Text style={type.overline}>{demo ? 'Demo' : 'Lokalnie'}</Text>
           </View>
+          {voiceSupported ? (
+            <Pressable
+              accessibilityLabel={voice ? 'Wycisz podpowiedzi głosowe' : 'Włącz podpowiedzi głosowe'}
+              onPress={() => setVoice((v) => !v)}
+              hitSlop={12}
+              style={[styles.side, { alignItems: 'flex-end' }]}
+            >
+              <Icon name={voice ? 'volume' : 'volume-off'} size={22} />
+            </Pressable>
+          ) : (
+            <View style={styles.side} />
+          )}
         </View>
         <View style={styles.bars}>
           {STEPS.map((s, i) => (
@@ -173,7 +208,7 @@ export default function Exam() {
             </View>
           ))}
         </View>
-        <Text style={[type.title, styles.center, { marginTop: 14 }]}>{step.title}</Text>
+        <Text style={styles.title}>{step.title}</Text>
         {fallback && (
           <Pressable onPress={retryCamera} style={styles.fallback} accessibilityRole="button">
             <Icon name="camera-off" size={16} color={colors.w80} />
@@ -187,34 +222,24 @@ export default function Exam() {
       <View style={[styles.bottom, { paddingBottom: bottom + 6 }]}>
         <View style={styles.status}>
           <View style={[styles.dot, { backgroundColor: dot }]} />
-          <Text style={[type.overline, { color: colors.w80 }]}>{status}</Text>
+          <Text style={styles.statusText}>{status}</Text>
         </View>
-        <Text style={[type.lead, styles.center]}>{instruction}</Text>
-        <Text style={[type.body, styles.center, { color: colors.w80 }]}>{hint}</Text>
-        {step.watch && (
-          <View style={styles.watch}>
-            {step.watch.map((f) => (
-              <View key={f} style={styles.watchItem}>
-                <SymptomIcon id={f} size={30} />
-                <Text style={styles.watchLabel} numberOfLines={1}>{findingLabel(f)}</Text>
-              </View>
-            ))}
-          </View>
-        )}
+        {(near || far) && <Icon name="distance" size={40} />}
+        <Text style={styles.cue} numberOfLines={2}>{cue}</Text>
         <View style={styles.controls}>
-          <PillButton size="s" label={paused ? 'Wznów' : 'Pauza'} icon={null} leadingIcon={paused ? 'play' : 'pause'} onPress={togglePause} style={styles.ctl} />
-          <ProgressRing size={76} progress={ev.progress}>
+          <PillButton label={paused ? 'Wznów' : 'Pauza'} icon={null} leadingIcon={paused ? 'play' : 'pause'} onPress={togglePause} style={styles.ctl} />
+          <ProgressRing size={88} progress={ev.progress} stroke={3}>
             {done ? (
               <Icon name="check" size={30} stroke={2} />
             ) : palpation ? (
-              <BreastDial size={58} cells={ev.cells} ticks={false} />
+              <BreastDial size={68} cells={ev.cells} ticks={false} />
             ) : (
-              <View style={{ marginTop: 26 }}>
-                <Figure pose={step.pose} size={60} fade={false} />
+              <View style={{ marginTop: 22 }}>
+                <Figure pose={step.pose} size={74} fade={false} />
               </View>
             )}
           </ProgressRing>
-          <PillButton size="s" label={index === total - 1 ? 'Zakończ' : 'Dalej'} onPress={next} style={styles.ctl} />
+          <PillButton label={last ? 'Koniec' : 'Dalej'} onPress={next} style={styles.ctl} />
         </View>
       </View>
 
@@ -238,19 +263,19 @@ const styles = StyleSheet.create({
   header: { position: 'absolute', top: 0, left: 0, right: 0, paddingHorizontal: 20 },
   headRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', height: 24, marginTop: -1 },
   side: { width: 72 },
-  local: { flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 5 },
+  local: { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  title: { fontFamily: fonts.semibold, fontSize: 20, lineHeight: 26, color: colors.white, textAlign: 'center', marginTop: 14 },
   bars: { flexDirection: 'row', gap: 4, marginTop: 14 },
   bar: { flex: 1, height: 2, borderRadius: 1, backgroundColor: colors.w24, overflow: 'hidden' },
   barFill: { height: 2, backgroundColor: colors.white },
   center: { textAlign: 'center' },
-  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 33, alignItems: 'center', gap: 8 },
-  status: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 2 },
-  dot: { width: 6, height: 6, borderRadius: 3 },
-  watch: { flexDirection: 'row', gap: 4, marginTop: 6 },
-  watchItem: { alignItems: 'center', gap: 2, width: 78 },
-  watchLabel: { ...type.caption, fontSize: 10, lineHeight: 13, color: colors.w80 },
-  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', marginTop: 14 },
-  ctl: { minWidth: 104 },
+  bottom: { position: 'absolute', left: 0, right: 0, bottom: 0, paddingHorizontal: 24, alignItems: 'center', gap: 10 },
+  status: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  statusText: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, letterSpacing: 0.4, color: colors.w80 },
+  dot: { width: 9, height: 9, borderRadius: 5 },
+  cue: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38, letterSpacing: -0.5, color: colors.white, textAlign: 'center' },
+  controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', marginTop: 16 },
+  ctl: { minWidth: 112 },
   fallback: {
     flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'center', marginTop: 10,
     paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: colors.w40,

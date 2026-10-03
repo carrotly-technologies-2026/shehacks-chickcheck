@@ -40,6 +40,8 @@ export type DetectionEvent = {
   frame?: { w: number; h: number };
   /** short coaching line when the pose is not right yet */
   coach?: string;
+  /** model only: the user is too close / too far for reliable landmarks */
+  distance?: 'near' | 'far';
 };
 
 export type DetectorOptions = { method: Method };

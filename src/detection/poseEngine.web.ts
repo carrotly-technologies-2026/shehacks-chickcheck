@@ -173,9 +173,21 @@ class ModelDetector implements PoseDetector {
     this.kp = kp;
     const seen = (k: KeyName) => seenMap[k];
 
-    if (!seen('ls') || !seen('rs')) {
-      this.hold = 0;
-      emit({ state: 'searching', progress: 0, keypoints: kp, seen: seenMap, space: 'video', frame, coach: 'Pokaż oba ramiona w kadrze' });
+    // Distance gate: landmarks get unreliable when the chest leaves the frame (too close) or the
+    // body is tiny (too far). One shoulder in view almost always means "too close".
+    // judged against the part of the frame a portrait phone screen actually shows (cover crop)
+    const span = dist(kp.ls, kp.rs);
+    const visibleW = Math.min(W, H * 0.46);
+    const chestY = (kp.ls[1] + kp.rs[1]) / 2 + span * 0.75;
+    const distance: 'near' | 'far' | undefined =
+      seen('ls') !== seen('rs') || span > visibleW * 0.8 || chestY > H ? 'near'
+      : seen('ls') && seen('rs') && span < W * 0.14 ? 'far'
+      : undefined;
+    if (!seen('ls') || !seen('rs') || distance) {
+      this.hold = Math.max(0, this.hold - dt * 2);
+      const coach = distance === 'far' ? 'Podejdź trochę bliżej telefonu' : distance === 'near' ? 'Odsuń się od telefonu, tak by widzieć całą klatkę piersiową' : 'Stań przodem, tak by widzieć oba ramiona';
+      const progress = palpation ? coverage(this.cells) : Math.min(1, this.hold / Math.max(1, step.holdMs));
+      emit({ state: 'searching', progress, keypoints: kp, seen: seenMap, space: 'video', frame, coach, distance: distance ?? 'near', cells: palpation ? [...this.cells] : undefined });
       return;
     }
 
