@@ -31,7 +31,7 @@ export class MockDetector implements PoseDetector {
     const goal = poseHands(step.pose);
     const palpation = step.check === 'palpation';
     const handKey: 'l' | 'r' = step.side === 'right' ? 'l' : 'r';
-    const target = targetsFor(step, figureKeypoints(goal))[0];
+    const target = targetsFor(step, figureKeypoints(goal), undefined, 'figure')[0];
     if (palpation && target) goal[handKey] = add(target.c, mul(path[0], target.r * 0.95));
 
     this.timer = setInterval(() => {
@@ -65,7 +65,7 @@ export class MockDetector implements PoseDetector {
         progress,
         figure: kp,
         keypoints: state === 'searching' ? undefined : kp,
-        targets: state === 'searching' ? undefined : targetsFor(step, kp),
+        targets: state === 'searching' ? undefined : targetsFor(step, kp, undefined, 'figure'),
         hand,
         cells: palpation ? [...this.cells] : undefined,
         space: 'figure',

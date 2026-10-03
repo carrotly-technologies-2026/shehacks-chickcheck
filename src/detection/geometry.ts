@@ -28,19 +28,33 @@ export function bodyFrame(kp: Keypoints, seen: Seen = always) {
 /** Position along the body axis below the shoulder line, in shoulder widths. */
 const depth = (p: Pt, f: ReturnType<typeof bodyFrame>) => dot(sub(p, f.mid), f.down) / f.W;
 
-// Anatomical ratios relative to shoulder width (measured on reference photos, rounded).
-export function breastTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen): Target {
+/**
+ * `camera` ratios are calibrated on MediaPipe landmarks of real people (shoulder landmarks sit on the
+ * joints, so the span is narrow and the torso long relative to it); `figure` matches the illustration.
+ */
+export type Profile = 'camera' | 'figure';
+
+export function breastTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen, profile: Profile = 'camera'): Target {
   const f = bodyFrame(kp, seen);
   const S = side === 'right' ? kp.rs : kp.ls;
-  const c = add(add(S, mul(f.down, 0.62 * f.W)), mul(sub(f.mid, S), 0.42));
-  return { c, r: 0.29 * f.W, kind: 'breast', side };
+  if (profile === 'figure') {
+    return { c: add(add(S, mul(f.down, 0.62 * f.W)), mul(sub(f.mid, S), 0.42)), r: 0.29 * f.W, kind: 'breast', side };
+  }
+  // nipple line ~27% of the shoulder→hip distance; without hips in view fall back to shoulder width
+  const torso = f.hips ? dist(lerp(kp.lh, kp.rh, 0.5), f.mid) : f.W * 1.45;
+  const c = add(add(S, mul(f.down, 0.27 * torso)), mul(sub(f.mid, S), 0.58));
+  return { c, r: 0.23 * f.W, kind: 'breast', side };
 }
 
-export function armpitTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen): Target {
+export function armpitTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen, profile: Profile = 'camera'): Target {
   const f = bodyFrame(kp, seen);
   const S = side === 'right' ? kp.rs : kp.ls;
-  const c = add(add(S, mul(f.down, 0.3 * f.W)), mul(sub(S, f.mid), 0.06));
-  return { c, r: 0.2 * f.W, kind: 'armpit', side };
+  if (profile === 'figure') {
+    return { c: add(add(S, mul(f.down, 0.3 * f.W)), mul(sub(S, f.mid), 0.06)), r: 0.2 * f.W, kind: 'armpit', side };
+  }
+  // axilla: just below and medial to the shoulder joint
+  const c = add(add(S, mul(f.down, 0.22 * f.W)), mul(sub(f.mid, S), 0.1));
+  return { c, r: 0.19 * f.W, kind: 'armpit', side };
 }
 
 export function hipTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen): Target {
@@ -52,10 +66,10 @@ export function hipTarget(kp: Keypoints, side: 'left' | 'right', seen?: Seen): T
   return { c, r: 0.24 * f.W, kind: 'hip', side };
 }
 
-export function targetsFor(step: ExamStep, kp: Keypoints, seen?: Seen): Target[] {
+export function targetsFor(step: ExamStep, kp: Keypoints, seen?: Seen, profile: Profile = 'camera'): Target[] {
   switch (step.check) {
-    case 'palpation': return [breastTarget(kp, step.side!, seen)];
-    case 'armpit': return [armpitTarget(kp, step.side!, seen)];
+    case 'palpation': return [breastTarget(kp, step.side!, seen, profile)];
+    case 'armpit': return [armpitTarget(kp, step.side!, seen, profile)];
     case 'hips': return [hipTarget(kp, 'left', seen), hipTarget(kp, 'right', seen)];
     default: return [];
   }
@@ -64,7 +78,7 @@ export function targetsFor(step: ExamStep, kp: Keypoints, seen?: Seen): Target[]
 // ---------------------------------------------------------------- pose checks
 export type CheckResult = { ok: boolean; coach?: string; hand?: Pt };
 
-export function checkPose(step: ExamStep, kp: Keypoints, seen: Seen = always): CheckResult {
+export function checkPose(step: ExamStep, kp: Keypoints, seen: Seen = always, profile: Profile = 'camera'): CheckResult {
   const f = bodyFrame(kp, seen);
   switch (step.check) {
     case 'front': {
@@ -86,11 +100,11 @@ export function checkPose(step: ExamStep, kp: Keypoints, seen: Seen = always): C
     }
     case 'palpation':
     case 'armpit': {
-      const t = step.check === 'palpation' ? breastTarget(kp, step.side!, seen) : armpitTarget(kp, step.side!, seen);
-      // the opposite hand examines; accept whichever visible palm is closer
+      const t = step.check === 'palpation' ? breastTarget(kp, step.side!, seen, profile) : armpitTarget(kp, step.side!, seen, profile);
+      // the opposite hand examines; accept whichever visible hand's finger pads are closer
       const order: KeyName[] = step.side === 'right' ? ['lp', 'rp'] : ['rp', 'lp'];
       const hand = order.filter(seen).map((k) => kp[k]).sort((a, b) => dist(a, t.c) - dist(b, t.c))[0];
-      const reach = step.check === 'palpation' ? 1.35 : 2.2;
+      const reach = step.check === 'palpation' ? 1.6 : 2.2;
       const ok = !!hand && dist(hand, t.c) < t.r * reach;
       const coach = step.check === 'palpation' ? 'Połóż dłoń na piersi, w zaznaczonym kole' : 'Sięgnij dłonią do zaznaczonej pachy';
       return { ok, hand, coach: ok ? undefined : coach };
@@ -171,11 +185,12 @@ const HIP_R: Pt = [122, 212];
 const NOSE: Pt = [100, 40];
 const UPPER = 54;
 const FORE = 48;
-const PALM = 9;
+/** wrist → pads of the middle fingers, the point that actually feels the tissue */
+const PALM = 18;
 
 export type Hands = { l: Pt; r: Pt };
 
-/** Two-bone IK: elbow always bends away from the body midline. Returns elbow, wrist and reachable palm. */
+/** Two-bone IK: elbow always bends away from the body midline. Returns elbow, wrist and the reachable finger pads. */
 export function solveArm(S: Pt, P: Pt) {
   const a = UPPER;
   const b = FORE + PALM;
@@ -207,12 +222,12 @@ export function poseHands(p: PoseName): Hands {
     case 'down': return { l: [56, 196], r: [144, 196] };
     case 'up': return { l: [86, 8], r: [114, 8] };
     case 'hips': return { l: hipTarget(BASE, 'left').c, r: hipTarget(BASE, 'right').c };
-    case 'palpateRight': return { l: breastTarget(BASE, 'right').c, r: BEHIND_HEAD_R };
-    case 'palpateLeft': return { l: BEHIND_HEAD_L, r: breastTarget(BASE, 'left').c };
-    case 'armpitRight': return { l: armpitTarget(BASE, 'right').c, r: BEHIND_HEAD_R };
+    case 'palpateRight': return { l: breastTarget(BASE, 'right', undefined, 'figure').c, r: BEHIND_HEAD_R };
+    case 'palpateLeft': return { l: BEHIND_HEAD_L, r: breastTarget(BASE, 'left', undefined, 'figure').c };
+    case 'armpitRight': return { l: armpitTarget(BASE, 'right', undefined, 'figure').c, r: BEHIND_HEAD_R };
   }
 }
 
 export const lerpHands = (a: Hands, b: Hands, t: number): Hands => ({ l: lerp(a.l, b.l, t), r: lerp(a.r, b.r, t) });
-export const BREAST_L = breastTarget(BASE, 'left');
-export const BREAST_R = breastTarget(BASE, 'right');
+export const BREAST_L = breastTarget(BASE, 'left', undefined, 'figure');
+export const BREAST_R = breastTarget(BASE, 'right', undefined, 'figure');
