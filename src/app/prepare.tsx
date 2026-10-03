@@ -1,7 +1,7 @@
 import { useRouter } from 'expo-router';
 import { StyleSheet, Text, View } from 'react-native';
 import { FadeIn } from '../components/FadeIn';
-import { Figure } from '../components/Figure';
+import { LineArt } from '../components/LineArt';
 import { Icon, IconName } from '../components/Icon';
 import { PillButton } from '../components/PillButton';
 import { Screen } from '../components/Screen';
@@ -34,7 +34,7 @@ export default function Prepare() {
       <View style={styles.stage}>
         <View style={styles.frame}>
           {(['tl', 'tr', 'bl', 'br'] as const).map((c) => <View key={c} style={[styles.corner, styles[c]]} />)}
-          <Figure pose="down" size={210} variant="ghost" />
+          <LineArt name="lift" width={350} />
         </View>
         <View style={styles.chips}>
           {CHIPS.map((c) => (
@@ -52,7 +52,7 @@ export default function Prepare() {
 const C = 28;
 const styles = StyleSheet.create({
   stage: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 22, paddingTop: 12 },
-  frame: { width: 244, height: 300, alignItems: 'center', justifyContent: 'center', paddingTop: 22 },
+  frame: { width: 280, height: 310, alignItems: 'center', justifyContent: 'center' },
   corner: { position: 'absolute', width: C, height: C, borderColor: colors.white },
   tl: { top: 0, left: 0, borderTopWidth: 1.5, borderLeftWidth: 1.5, borderTopLeftRadius: 16 },
   tr: { top: 0, right: 0, borderTopWidth: 1.5, borderRightWidth: 1.5, borderTopRightRadius: 16 },
