@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "hackyeah26-chickcheck",
-    "slug": "hackyeah26-chickcheck",
+    "name": "ChickCheck",
+    "slug": "chickcheck",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -16,10 +16,25 @@
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "permissions": [
+        "CAMERA"
+      ]
     },
     "web": {
+      "bundler": "metro",
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      "expo-font",
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "ChickCheck u\u017cywa kamery tylko do analizy na Twoim urz\u0105dzeniu. Nagrania nigdy nie s\u0105 zapisywane ani wysy\u0142ane."
+        }
+      ]
+    ],
+    "scheme": "chickcheck"
   }
 }
