@@ -1,6 +1,6 @@
 import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { BreastDial } from '../../components/BreastDial';
-import { Figure } from '../../components/Figure';
+import { LineArt, TECHNIQUES } from '../../components/LineArt';
 import { Screen } from '../../components/Screen';
 import { SymptomIcon } from '../../components/SymptomIcon';
 import { METHODS } from '../../exam/steps';
@@ -26,7 +26,7 @@ export default function Tips() {
             <Text style={[type.body, { flex: 1 }]}>
               Najlepiej 7–10 dni po rozpoczęciu miesiączki, gdy piersi są najmniej tkliwe. Po menopauzie wybierz stały dzień miesiąca.
             </Text>
-            <Figure pose="palpateLeft" size={96} />
+            <LineArt name="side" width={120} />
           </View>
         </Section>
 
@@ -43,6 +43,14 @@ export default function Tips() {
 
         <Section n="03" title="Jak badać dotykiem">
           <Text style={type.body}>Opuszkami trzech środkowych palców, płasko, z trzema poziomami nacisku: lekkim, średnim i głębokim. Wybierz jeden wzór i trzymaj się go co miesiąc.</Text>
+          <View style={styles.gallery}>
+            {TECHNIQUES.map((x) => (
+              <View key={x.name} style={styles.technique}>
+                <LineArt name={x.name} width={136} />
+                <Text style={[type.caption, styles.center]}>{x.caption}</Text>
+              </View>
+            ))}
+          </View>
           <View style={styles.methods}>
             {METHODS.map((m) => (
               <View key={m.id} style={styles.gridItem}>
@@ -75,5 +83,7 @@ const styles = StyleSheet.create({
   grid: { flexDirection: 'row', flexWrap: 'wrap', rowGap: 18, marginTop: 6 },
   gridItem: { width: '33.33%', alignItems: 'center', gap: 6 },
   methods: { flexDirection: 'row', marginTop: 6 },
+  gallery: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'space-between', rowGap: 18, marginTop: 6 },
+  technique: { width: '48%', alignItems: 'center', gap: 6 },
   center: { textAlign: 'center' },
 });

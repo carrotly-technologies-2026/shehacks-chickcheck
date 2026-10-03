@@ -5,6 +5,7 @@ import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraFeed, CameraStatus } from '../camera/CameraFeed';
 import { BreastDial } from '../components/BreastDial';
 import { Figure } from '../components/Figure';
+import { LineArt } from '../components/LineArt';
 import { Grain } from '../components/Grain';
 import { Icon } from '../components/Icon';
 import { PillButton } from '../components/PillButton';
@@ -234,9 +235,11 @@ export default function Exam() {
             ) : palpation ? (
               <BreastDial size={68} cells={ev.cells} ticks={false} />
             ) : (
-              <View style={{ marginTop: 22 }}>
-                <Figure pose={step.pose} size={74} fade={false} />
-              </View>
+              step.check === 'armpit' ? (
+                <LineArt name="shoulder" width={64} disc={false} />
+              ) : (
+                <Text style={styles.stepNo}>{index + 1}</Text>
+              )
             )}
           </ProgressRing>
           <PillButton label={last ? 'Koniec' : 'Dalej'} onPress={next} style={styles.ctl} />
@@ -273,6 +276,7 @@ const styles = StyleSheet.create({
   status: { flexDirection: 'row', alignItems: 'center', gap: 8 },
   statusText: { fontFamily: fonts.medium, fontSize: 15, lineHeight: 20, letterSpacing: 0.4, color: colors.w80 },
   dot: { width: 9, height: 9, borderRadius: 5 },
+  stepNo: { fontFamily: fonts.light, fontSize: 40, lineHeight: 46, color: colors.white },
   cue: { fontFamily: fonts.bold, fontSize: 32, lineHeight: 38, letterSpacing: -0.5, color: colors.white, textAlign: 'center' },
   controls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', alignSelf: 'stretch', marginTop: 16 },
   ctl: { minWidth: 112 },
