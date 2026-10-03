@@ -4,7 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { CameraFeed, CameraStatus } from '../camera/CameraFeed';
 import { BreastDial } from '../components/BreastDial';
-import { Figure } from '../components/Figure';
 import { LineArt } from '../components/LineArt';
 import { Grain } from '../components/Grain';
 import { Icon } from '../components/Icon';
@@ -18,6 +17,7 @@ import { createModelDetector, hasPoseModel } from '../detection/poseEngine';
 import { ExamOverlay, Projector } from '../exam/ExamOverlay';
 import { METHODS, Method, STEPS } from '../exam/steps';
 import { useAutoFrame } from '../exam/useAutoFrame';
+import { DemoArt } from '../exam/DemoArt';
 import { useExamSession } from '../exam/useExamSession';
 import { useVoice, voiceSupported } from '../exam/useVoice';
 import { useInsets } from '../lib/insets';
@@ -145,27 +145,30 @@ export default function Exam() {
       )}
       <Grain opacity={demo ? 0.16 : 0.1} />
 
-      {demo && ev.figure && (
-        <View style={[styles.abs, { left: box.x, top: box.y }]}>
-          <Figure kp={ev.figure} size={bw} />
+      {demo && (
+        <View style={[styles.art, { top: top + 96, bottom: 300 }]}>
+          <DemoArt step={step} width={size.w * 0.92} t={t} active={ev.state === 'detected'} />
         </View>
       )}
+      {/* nobody in frame yet: a frontal drawing shows where to stand */}
       {!demo && !loading && !hasBody && (
-        <View style={[styles.abs, { left: box.x + bw * 0.1, top: box.y + 10, opacity: 0.55 + 0.3 * Math.sin(t * 2.2) }]}>
-          <Figure pose={step.pose} size={bw * 0.8} variant="ghost" />
+        <View style={[styles.art, { top: top + 96, bottom: 300, opacity: 0.55 + 0.3 * Math.sin(t * 2.2) }]}>
+          <DemoArt step={STEPS[0]} width={size.w * 0.92} t={t} active={false} />
         </View>
       )}
 
-      {/* overlay under the scrims, so it fades out behind the large bottom text */}
-      <ExamOverlay
-        ev={ev}
-        proj={proj}
-        method={method}
-        width={size.w}
-        height={size.h}
-        t={t}
-        sinceDetect={detectedAt === null ? null : (performance.now() - detectedAt) / 1000}
-      />
+      {/* overlay under the scrims, so it fades out behind the large bottom text; live camera only */}
+      {!demo && (
+        <ExamOverlay
+          ev={ev}
+          proj={proj}
+          method={method}
+          width={size.w}
+          height={size.h}
+          t={t}
+          sinceDetect={detectedAt === null ? null : (performance.now() - detectedAt) / 1000}
+        />
+      )}
 
       <LinearGradient colors={['rgba(169,137,114,0.96)', 'rgba(169,137,114,0)']} style={[styles.scrimTop, { height: top + 150 }]} />
       <LinearGradient colors={['rgba(137,96,77,0)', 'rgba(137,96,77,0.9)', colors.bottom]} locations={[0, 0.42, 1]} style={styles.scrimBottom} />
@@ -259,6 +262,7 @@ export default function Exam() {
 const styles = StyleSheet.create({
   fill: { flex: 1, overflow: 'hidden', backgroundColor: colors.bottom },
   abs: { position: 'absolute', pointerEvents: 'none' },
+  art: { position: 'absolute', left: 0, right: 0, alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' },
   grade: { backgroundColor: 'rgba(137,96,77,0.12)', pointerEvents: 'none' },
   scrimTop: { position: 'absolute', top: 0, left: 0, right: 0, pointerEvents: 'none' },
   scrimBottom: { position: 'absolute', bottom: 0, left: 0, right: 0, height: 360, pointerEvents: 'none' },
