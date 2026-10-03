@@ -1,7 +1,7 @@
-import type { PoseLandmarker } from '@mediapipe/tasks-vision';
+import type { HandLandmarker, PoseLandmarker } from '@mediapipe/tasks-vision';
 import type { ExamStep } from '../exam/steps';
 import { CELLS, DetectionEvent, DetectorOptions, KeyName, Keypoints, PoseDetector, Pt } from './detector';
-import { cellAt, checkPose, coverage, lerp, targetsFor } from './geometry';
+import { add, cellAt, checkPose, coverage, dist, lerp, mul, sub, targetsFor } from './geometry';
 
 /*
  * On-device pose recognition for the web build.
@@ -9,16 +9,53 @@ import { cellAt, checkPose, coverage, lerp, targetsFor } from './geometry';
  * from third parties and no frame ever leaves the browser tab.
  */
 
+type Vision = typeof import('@mediapipe/tasks-vision');
+let vision: Promise<{ mod: Vision; files: Awaited<ReturnType<Vision['FilesetResolver']['forVisionTasks']>> }> | null = null;
 let model: Promise<PoseLandmarker> | null = null;
+let handModel: Promise<HandLandmarker | null> | null = null;
+
+function loadVision() {
+  if (!vision) {
+    vision = (async () => {
+      // Loaded by the browser itself from /public: Metro cannot transform this bundle (it contains a
+      // dynamic import), and serving it ourselves keeps the whole pipeline first-party and offline.
+      const nativeImport = new Function('u', 'return import(u)') as (u: string) => Promise<Vision>;
+      const mod = await nativeImport('/mediapipe/vision_bundle.mjs');
+      return { mod, files: await mod.FilesetResolver.forVisionTasks('/mediapipe') };
+    })();
+    vision.catch(() => { vision = null; });
+  }
+  return vision;
+}
+
+/** Fingertip model: optional, the exam falls back to estimating finger pads from the pose. */
+function loadHandModel(): Promise<HandLandmarker | null> {
+  if (!handModel) {
+    handModel = (async () => {
+      const { mod, files } = await loadVision();
+      const make = (delegate: 'GPU' | 'CPU') =>
+        mod.HandLandmarker.createFromOptions(files, {
+          baseOptions: { modelAssetPath: '/models/hand_landmarker.task', delegate },
+          runningMode: 'VIDEO',
+          numHands: 2,
+          minHandDetectionConfidence: 0.4,
+          minTrackingConfidence: 0.4,
+        });
+      try {
+        return await make('GPU');
+      } catch {
+        return await make('CPU');
+      }
+    })().catch(() => null);
+  }
+  return handModel;
+}
 
 export function loadPoseModel(): Promise<PoseLandmarker> {
   if (!model) {
     model = (async () => {
-      // Loaded by the browser itself from /public: Metro cannot transform this bundle (it contains a
-      // dynamic import), and serving it ourselves keeps the whole pipeline first-party and offline.
-      const nativeImport = new Function('u', 'return import(u)') as (u: string) => Promise<typeof import('@mediapipe/tasks-vision')>;
-      const { FilesetResolver, PoseLandmarker } = await nativeImport('/mediapipe/vision_bundle.mjs');
-      const files = await FilesetResolver.forVisionTasks('/mediapipe');
+      const { mod, files } = await loadVision();
+      const { PoseLandmarker } = mod;
       const make = (delegate: 'GPU' | 'CPU') =>
         PoseLandmarker.createFromOptions(files, {
           baseOptions: { modelAssetPath: '/models/pose_landmarker_lite.task', delegate },
@@ -42,12 +79,16 @@ export function loadPoseModel(): Promise<PoseLandmarker> {
 export const hasPoseModel = true;
 
 export async function createModelDetector(video: HTMLVideoElement): Promise<PoseDetector> {
-  return new ModelDetector(await loadPoseModel(), video);
+  const [pose, hands] = await Promise.all([loadPoseModel(), loadHandModel()]);
+  return new ModelDetector(pose, hands, video);
 }
 
 // MediaPipe BlazePose indices
 const I = { nose: 0, ls: 11, rs: 12, le: 13, re: 14, lw: 15, rw: 16, lpinky: 17, rpinky: 18, lindex: 19, rindex: 20, lh: 23, rh: 24 };
 const SMOOTH = 0.5;
+// hand landmarks: DIP joints and tips of index, middle and ring fingers = the pads used to palpate
+const PADS = [7, 8, 11, 12, 15, 16];
+const mean = (pts: Pt[]): Pt => [pts.reduce((a, p) => a + p[0], 0) / pts.length, pts.reduce((a, p) => a + p[1], 0) / pts.length];
 
 class ModelDetector implements PoseDetector {
   readonly kind = 'model' as const;
@@ -60,7 +101,7 @@ class ModelDetector implements PoseDetector {
   private cells: boolean[] = [];
   private kp: Keypoints | null = null;
 
-  constructor(private lm: PoseLandmarker, private video: HTMLVideoElement) {}
+  constructor(private lm: PoseLandmarker, private hands: HandLandmarker | null, private video: HTMLVideoElement) {}
 
   start(step: ExamStep, _opts: DetectorOptions, emit: (e: DetectionEvent) => void) {
     this.stop();
@@ -99,17 +140,31 @@ class ModelDetector implements PoseDetector {
     // mirror x so the overlay matches the selfie preview
     const P = (i: number): Pt => [(1 - lms[i].x) * W, lms[i].y * H];
     const vis = (i: number) => (lms[i].visibility ?? 1) > 0.5 && lms[i].x > -0.02 && lms[i].x < 1.02 && lms[i].y > -0.02 && lms[i].y < 1.02;
-    const palm = (w: number, a: number, b: number): Pt => {
-      const [p, q, r] = [P(w), P(a), P(b)];
-      return [(p[0] + q[0] + r[0]) / 3, (p[1] + q[1] + r[1]) / 3];
+    // pose-only estimate of the finger pads: past the knuckles, along wrist → knuckles
+    const padsFromPose = (w: number, a: number, b: number): Pt => {
+      const k = mean([P(a), P(b)]);
+      return add(k, mul(sub(k, P(w)), 0.6));
     };
+    // fingertip model on the steps where touch matters; each hand goes to the nearest pose wrist
+    const touchStep = step.check === 'palpation' || step.check === 'armpit';
+    const found: { l?: Pt[]; r?: Pt[] } = {};
+    if (touchStep && this.hands) {
+      const sets = (this.hands.detectForVideo(v, now).landmarks ?? []).map((h) => h.map((l): Pt => [(1 - l.x) * W, l.y * H]));
+      for (const h of sets) {
+        const side = dist(h[0], P(I.lw)) <= dist(h[0], P(I.rw)) ? 'l' : 'r';
+        if (!found[side]) found[side] = h;
+        else found[side === 'l' ? 'r' : 'l'] ??= h;
+      }
+    }
     const raw: Keypoints = {
       nose: P(I.nose), ls: P(I.ls), rs: P(I.rs), le: P(I.le), re: P(I.re), lw: P(I.lw), rw: P(I.rw),
-      lp: palm(I.lw, I.lindex, I.lpinky), rp: palm(I.rw, I.rindex, I.rpinky), lh: P(I.lh), rh: P(I.rh),
+      lp: found.l ? mean(PADS.map((i) => found.l![i])) : padsFromPose(I.lw, I.lindex, I.lpinky),
+      rp: found.r ? mean(PADS.map((i) => found.r![i])) : padsFromPose(I.rw, I.rindex, I.rpinky),
+      lh: P(I.lh), rh: P(I.rh),
     };
     const seenMap: Record<KeyName, boolean> = {
       nose: vis(I.nose), ls: vis(I.ls), rs: vis(I.rs), le: vis(I.le), re: vis(I.re), lw: vis(I.lw), rw: vis(I.rw),
-      lp: vis(I.lw), rp: vis(I.rw), lh: vis(I.lh), rh: vis(I.rh),
+      lp: !!found.l || vis(I.lw), rp: !!found.r || vis(I.rw), lh: vis(I.lh), rh: vis(I.rh),
     };
     const prev = this.kp;
     const kp = prev
@@ -138,8 +193,9 @@ class ModelDetector implements PoseDetector {
       progress = Math.min(1, this.hold / step.holdMs);
     }
     const state = progress >= 1 ? 'complete' : res.ok ? 'detected' : 'searching';
+    const handPts = res.hand ? (res.hand === kp.lp ? found.l : found.r) : undefined;
     emit({
-      state, progress, keypoints: kp, seen: seenMap, targets, hand: res.ok ? res.hand : undefined,
+      state, progress, keypoints: kp, seen: seenMap, targets, hand: res.ok ? res.hand : undefined, handPts,
       cells: palpation ? [...this.cells] : undefined, space: 'video', frame, coach: res.coach,
     });
     if (state === 'complete') this.stop();

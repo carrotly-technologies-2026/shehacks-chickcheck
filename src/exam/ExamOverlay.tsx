@@ -24,6 +24,8 @@ const BONES: [KeyName, KeyName][] = [
   ['ls', 'rs'], ['ls', 'le'], ['le', 'lw'], ['rs', 're'], ['re', 'rw'], ['ls', 'lh'], ['rs', 'rh'], ['lh', 'rh'],
 ];
 const JOINTS: KeyName[] = ['ls', 'rs', 'le', 're', 'lw', 'rw', 'lh', 'rh'];
+const HAND_BONES = [[0, 1], [1, 2], [2, 3], [3, 4], [0, 5], [5, 6], [6, 7], [7, 8], [5, 9], [9, 10], [10, 11], [11, 12], [9, 13], [13, 14], [14, 15], [15, 16], [13, 17], [17, 18], [18, 19], [19, 20], [0, 17]];
+const TIPS = [8, 12, 16];
 
 const polar = (c: Pt, r: number, a: number): Pt => [c[0] + r * Math.sin(a), c[1] - r * Math.cos(a)];
 const f = (p: Pt) => `${p[0].toFixed(1)},${p[1].toFixed(1)}`;
@@ -160,6 +162,19 @@ export function ExamOverlay({ ev, proj, method, width, height, t, sinceDetect }:
           : <SpotTarget key={i} c={c} r={r} t={t + i * 0.4} />;
       })}
 
+      {ev.handPts && (
+        <G>
+          {HAND_BONES.map(([a, b]) => {
+            const [p, q] = [proj.p(ev.handPts![a]), proj.p(ev.handPts![b])];
+            return <Line key={`${a}-${b}`} x1={p[0]} y1={p[1]} x2={q[0]} y2={q[1]} stroke="#fff" strokeOpacity={0.55} strokeWidth={1.1} strokeLinecap="round" />;
+          })}
+          {ev.handPts.map((pt, i) => {
+            const p = proj.p(pt);
+            const tip = TIPS.includes(i);
+            return <Circle key={i} cx={p[0]} cy={p[1]} r={tip ? 3.6 : 1.6} fill={tip ? colors.blush : '#fff'} fillOpacity={tip ? 1 : 0.8} />;
+          })}
+        </G>
+      )}
       {trail.current.length > 1 && (
         <Polyline points={trail.current.map(f).join(' ')} fill="none" stroke={colors.rose} strokeOpacity={0.55} strokeWidth={3} strokeLinecap="round" strokeLinejoin="round" />
       )}

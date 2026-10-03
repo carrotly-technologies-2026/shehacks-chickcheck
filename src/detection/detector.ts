@@ -5,7 +5,7 @@ export type Pt = [number, number];
 /**
  * Body keypoints in the *displayed* (mirrored) image. Names are anatomical: `rs` is the user's right
  * shoulder, which appears on the right of the screen because the preview behaves like a mirror.
- * `p*` are palm centres (wrist + index + pinky).
+ * `lp` / `rp` are the touch points: pads of the index, middle and ring fingers.
  */
 export type Keypoints = {
   nose: Pt;
@@ -28,8 +28,10 @@ export type DetectionEvent = {
   /** visibility 0..1 per keypoint (model only) */
   seen?: Partial<Record<KeyName, boolean>>;
   targets?: Target[];
-  /** palm doing the work, drawn as the live touch cursor */
+  /** finger pads doing the work, drawn as the live touch cursor */
   hand?: Pt;
+  /** 21 hand landmarks of the examining hand (model only), for the finger overlay */
+  handPts?: Pt[];
   /** coverage cells, RINGS x SECTORS, ring 0 = around the nipple */
   cells?: boolean[];
   /** coordinate space of every point above */
