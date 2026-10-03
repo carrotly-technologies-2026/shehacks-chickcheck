@@ -1,6 +1,6 @@
 # ChickCheck
 
-Breast self-exam assistant (HackYeah 2026). The phone camera and an **on-device** AI recognise the
+Breast self-exam assistant (HackYeah 2026). The phone camera and **on-device** pose estimation and hand-tracking models recognise the
 user's pose, show where to touch, track the fingers and map which areas were covered. A local health
 log keeps findings with their clinical location. Nothing ever leaves the phone.
 
@@ -17,7 +17,7 @@ npx tsc --noEmit     # typecheck
 The camera needs `localhost` or https (browsers block it on plain-http IP addresses).
 Useful deep links: `/exam?step=1..6`, `/exam?method=spiral|radial|strips`, `/exam?demo=1` (no camera).
 
-## How the AI works
+## How the models work
 
 - `src/detection/poseEngine.web.ts` runs **MediaPipe Pose Landmarker** (and Hand Landmarker for the
   fingertips) in the browser. WASM runtime and models are served from `public/`, so there are no

@@ -55,7 +55,7 @@ export default function Result() {
         <FadeIn style={styles.hero}>
           <View style={styles.tick}><Icon name="check" size={26} color={colors.ink} stroke={2.2} /></View>
           <Text style={[type.display, styles.center]}>Badanie zakończone</Text>
-          <Text style={type.caption}>{steps}/{STEPS.length} kroków · {minutes} min · {r?.source === 'model' ? 'AI na urządzeniu' : 'tryb demo'}</Text>
+          <Text style={type.caption}>{steps}/{STEPS.length} kroków · {minutes} min · {r?.source === 'model' ? 'inferencja na urządzeniu' : 'tryb demo'}</Text>
         </FadeIn>
         <FadeIn delay={150} style={styles.dials}>
           {(['left', 'right'] as const).map((side) => (

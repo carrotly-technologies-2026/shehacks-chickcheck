@@ -44,7 +44,7 @@ export function PhoneFrame({ children }: { children: ReactNode }) {
       {!bare && (
         <View style={styles.caption}>
           <Text style={styles.brand}>ChickCheck</Text>
-          <Text style={styles.sub}>Prywatne samobadanie piersi. AI działa lokalnie na telefonie.</Text>
+          <Text style={styles.sub}>Samobadanie piersi prowadzone przez model estymacji pozy i model śledzenia dłoni. Inferencja wyłącznie na urządzeniu.</Text>
         </View>
       )}
       <View style={[styles.device, { transform: [{ scale }] }]}>

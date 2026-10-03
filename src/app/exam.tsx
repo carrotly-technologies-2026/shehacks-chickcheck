@@ -68,7 +68,7 @@ export default function Exam() {
     ? null
     : cam === 'denied'
       ? (typeof window !== 'undefined' && !window.isSecureContext ? 'Kamera działa tylko przez https lub localhost' : 'Brak dostępu do kamery')
-      : modelFailed ? 'Model AI nie wczytał się' : null;
+      : modelFailed ? 'Model estymacji pozy nie wczytał się' : null;
   const retryCamera = () => {
     setModelFailed(false);
     setModel(null);
@@ -100,7 +100,7 @@ export default function Exam() {
   const done = ev.state === 'complete';
 
   const status = loading
-    ? 'Ładuję model AI'
+    ? 'Ładuję model pozy'
     : done ? 'Gotowe'
     : !hasBody ? 'Szukam sylwetki'
     : ev.state === 'searching' ? 'Widzę Cię'
@@ -150,7 +150,7 @@ export default function Exam() {
       {loading && (
         <View style={styles.loading}>
           <Rings size={150}><Icon name="sparkle" size={26} /></Rings>
-          <Text style={[type.body, styles.center]}>{cam === 'pending' ? 'Włączam kamerę…' : 'Uruchamiam model AI na urządzeniu…'}</Text>
+          <Text style={[type.body, styles.center]}>{cam === 'pending' ? 'Włączam kamerę…' : 'Uruchamiam model estymacji pozy na urządzeniu…'}</Text>
         </View>
       )}
 

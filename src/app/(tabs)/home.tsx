@@ -53,7 +53,7 @@ export default function Home() {
             <Icon name="shield" size={20} color={colors.w80} />
             <View style={{ flex: 1 }}>
               <Text style={type.title}>Prywatnie</Text>
-              <Text style={type.caption}>AI działa na tym telefonie. Obraz nie jest nigdzie wysyłany.</Text>
+              <Text style={type.caption}>Inferencja modeli na tym telefonie. Obraz nie jest nigdzie wysyłany.</Text>
             </View>
           </View>
         </FadeIn>

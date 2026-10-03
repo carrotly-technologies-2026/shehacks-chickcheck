@@ -16,7 +16,7 @@ export default function About() {
         <>
           <FadeIn delay={200}>
             <Text style={[type.body, styles.center]}>
-              Korzystając z aplikacji ChickCheck możesz przeprowadzić samobadanie piersi korzystając z kamery wbudowanej w telefonie. Asystent AI będzie Cię wspierał w badaniu.{'\n'}
+              Korzystając z aplikacji ChickCheck możesz przeprowadzić samobadanie piersi korzystając z kamery wbudowanej w telefonie. Model rozpoznawania pozy i śledzenia dłoni poprowadzi Cię przez badanie.{'\n'}
               Model działa lokalnie na Twoim urządzeniu i żadne nagrania z aplikacji nie są wysyłane poza Twoje urządzenie.
             </Text>
           </FadeIn>

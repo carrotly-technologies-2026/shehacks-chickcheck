@@ -8,7 +8,7 @@ import { STEPS } from '../exam/steps';
 import { useTime } from '../lib/useTime';
 import { Figure } from './Figure';
 
-/** Self-running miniature of the exam: the illustrated body, AI landmarks and the touch target. */
+/** Self-running miniature of the exam: the illustrated body, pose landmarks and the touch target. */
 export function LiveDemo({ size }: { size: number }) {
   const t = useTime();
   const [ev, setEv] = useState<DetectionEvent | null>(null);

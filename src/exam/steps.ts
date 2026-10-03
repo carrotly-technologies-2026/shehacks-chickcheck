@@ -7,7 +7,7 @@ export type PoseName = 'down' | 'up' | 'hips' | 'palpateRight' | 'palpateLeft' |
 export type ExamStep = {
   id: string;
   title: string;
-  /** shown until the AI recognises the pose */
+  /** shown until the pose model recognises the pose */
   seeking: string;
   /** shown once the pose is recognised */
   doing: string;
